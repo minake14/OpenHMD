@@ -1,11 +1,12 @@
+// Copyright 2013, Fredrik Hultin.
+// Copyright 2013, Jakob Bornecrantz.
+// SPDX-License-Identifier: BSL-1.0
 /*
  * OpenHMD - Free and Open Source API and drivers for immersive technology.
- * Copyright (C) 2013 Fredrik Hultin.
- * Copyright (C) 2013 Jakob Bornecrantz.
- * Distributed under the Boost 1.0 licence, see LICENSE for full text.
  */
 
 /* Main Lib Implementation */
+
 
 #include "openhmdi.h"
 #include "shaders.h"
@@ -16,7 +17,7 @@
 // Running automatic updates at 1000 Hz
 #define AUTOMATIC_UPDATE_SLEEP (1.0 / 1000.0)
 
-ohmd_context* OHMD_APIENTRY ohmd_ctx_create(void)
+OHMD_APIENTRYDLL ohmd_context* OHMD_APIENTRY ohmd_ctx_create(void)
 {
 	ohmd_context* ctx = calloc(1, sizeof(ohmd_context));
 	if(!ctx){
@@ -54,12 +55,12 @@ ohmd_context* OHMD_APIENTRY ohmd_ctx_create(void)
 	ctx->drivers[ctx->num_drivers++] = ohmd_create_xgvr_drv(ctx);
 #endif
 
-#if DRIVER_EXTERNAL
-	ctx->drivers[ctx->num_drivers++] = ohmd_create_external_drv(ctx);
-#endif
-
 #if DRIVER_ANDROID
 	ctx->drivers[ctx->num_drivers++] = ohmd_create_android_drv(ctx);
+#endif
+
+#if DRIVER_EXTERNAL
+	ctx->drivers[ctx->num_drivers++] = ohmd_create_external_drv(ctx);
 #endif
 	// add dummy driver last to make it the lowest priority
 	ctx->drivers[ctx->num_drivers++] = ohmd_create_dummy_drv(ctx);
@@ -69,7 +70,7 @@ ohmd_context* OHMD_APIENTRY ohmd_ctx_create(void)
 	return ctx;
 }
 
-void OHMD_APIENTRY ohmd_ctx_destroy(ohmd_context* ctx)
+OHMD_APIENTRYDLL void OHMD_APIENTRY ohmd_ctx_destroy(ohmd_context* ctx)
 {
 	ctx->update_request_quit = true;
 
@@ -89,7 +90,7 @@ void OHMD_APIENTRY ohmd_ctx_destroy(ohmd_context* ctx)
 	free(ctx);
 }
 
-void OHMD_APIENTRY ohmd_ctx_update(ohmd_context* ctx)
+OHMD_APIENTRYDLL void OHMD_APIENTRY ohmd_ctx_update(ohmd_context* ctx)
 {
 	for(int i = 0; i < ctx->num_active_devices; i++){
 		ohmd_device* dev = ctx->active_devices[i];
@@ -103,12 +104,12 @@ void OHMD_APIENTRY ohmd_ctx_update(ohmd_context* ctx)
 	}
 }
 
-const char* OHMD_APIENTRY ohmd_ctx_get_error(ohmd_context* ctx)
+OHMD_APIENTRYDLL const char* OHMD_APIENTRY ohmd_ctx_get_error(ohmd_context* ctx)
 {
 	return ctx->error_msg;
 }
 
-int OHMD_APIENTRY ohmd_ctx_probe(ohmd_context* ctx)
+OHMD_APIENTRYDLL int OHMD_APIENTRY ohmd_ctx_probe(ohmd_context* ctx)
 {
 	memset(&ctx->list, 0, sizeof(ohmd_device_list));
 	for(int i = 0; i < ctx->num_drivers; i++){
@@ -118,7 +119,7 @@ int OHMD_APIENTRY ohmd_ctx_probe(ohmd_context* ctx)
 	return ctx->list.num_devices;
 }
 
-int OHMD_APIENTRY ohmd_gets(ohmd_string_description type, const char ** out)
+OHMD_APIENTRYDLL int OHMD_APIENTRY ohmd_gets(ohmd_string_description type, const char ** out)
 {
 	switch(type){
 	case OHMD_GLSL_DISTORTION_VERT_SRC:
@@ -133,12 +134,18 @@ int OHMD_APIENTRY ohmd_gets(ohmd_string_description type, const char ** out)
 	case OHMD_GLSL_330_DISTORTION_FRAG_SRC:
 		*out = distortion_frag_330;
 		return OHMD_S_OK;
+	case OHMD_GLSL_ES_DISTORTION_VERT_SRC:
+		*out = distortion_vert_es;
+		return OHMD_S_OK;
+	case OHMD_GLSL_ES_DISTORTION_FRAG_SRC:
+		*out = distortion_frag_es;
+		return OHMD_S_OK;
 	default:
 		return OHMD_S_UNSUPPORTED;
 	}
 }
 
-const char* OHMD_APIENTRY ohmd_list_gets(ohmd_context* ctx, int index, ohmd_string_value type)
+OHMD_APIENTRYDLL const char* OHMD_APIENTRY ohmd_list_gets(ohmd_context* ctx, int index, ohmd_string_value type)
 {
 	if(index >= ctx->list.num_devices)
 		return NULL;
@@ -155,7 +162,7 @@ const char* OHMD_APIENTRY ohmd_list_gets(ohmd_context* ctx, int index, ohmd_stri
 	}
 }
 
-int OHMD_APIENTRY ohmd_list_geti(ohmd_context* ctx, int index, ohmd_int_value type, int* out)
+OHMD_APIENTRYDLL int OHMD_APIENTRY ohmd_list_geti(ohmd_context* ctx, int index, ohmd_int_value type, int* out)
 {
 	if(index >= ctx->list.num_devices)
 		return OHMD_S_INVALID_PARAMETER;
@@ -203,7 +210,7 @@ static void ohmd_set_up_update_thread(ohmd_context* ctx)
 	}
 }
 
-ohmd_device* OHMD_APIENTRY ohmd_list_open_device_s(ohmd_context* ctx, int index, ohmd_device_settings* settings)
+OHMD_APIENTRYDLL ohmd_device* OHMD_APIENTRY ohmd_list_open_device_s(ohmd_context* ctx, int index, ohmd_device_settings* settings)
 {
 	ohmd_lock_mutex(ctx->update_mutex);
 
@@ -241,7 +248,7 @@ ohmd_device* OHMD_APIENTRY ohmd_list_open_device_s(ohmd_context* ctx, int index,
 	return NULL;
 }
 
-ohmd_device* OHMD_APIENTRY ohmd_list_open_device(ohmd_context* ctx, int index)
+OHMD_APIENTRYDLL ohmd_device* OHMD_APIENTRY ohmd_list_open_device(ohmd_context* ctx, int index)
 {
 	ohmd_device_settings settings;
 
@@ -250,7 +257,7 @@ ohmd_device* OHMD_APIENTRY ohmd_list_open_device(ohmd_context* ctx, int index)
 	return ohmd_list_open_device_s(ctx, index, &settings);
 }
 
-int OHMD_APIENTRY ohmd_close_device(ohmd_device* device)
+OHMD_APIENTRYDLL int OHMD_APIENTRY ohmd_close_device(ohmd_device* device)
 {
 	ohmd_lock_mutex(device->ctx->update_mutex);
 
@@ -276,24 +283,22 @@ static int ohmd_device_getf_unp(ohmd_device* device, ohmd_float_value type, floa
 {
 	switch(type){
 	case OHMD_LEFT_EYE_GL_MODELVIEW_MATRIX: {
-			vec3f point = {{0, 0, 0}};
 			quatf rot = device->rotation;
 			oquatf_mult_me(&rot, &device->rotation_correction);
-			mat4x4f orient, world_shift, result;
-			omat4x4f_init_look_at(&orient, &rot, &point);
-			omat4x4f_init_translate(&world_shift, -device->position.x +(device->properties.ipd / 2.0f), -device->position.y, -device->position.z);
-			omat4x4f_mult(&world_shift, &orient, &result);
+			mat4x4f central_view, eye_shift, result;
+			omat4x4f_init_look_at(&central_view, &rot, &device->position);
+			omat4x4f_init_translate(&eye_shift, +(device->properties.ipd / 2.0f), 0.0f, 0.0f);
+			omat4x4f_mult(&eye_shift, &central_view, &result);
 			omat4x4f_transpose(&result, (mat4x4f*)out);
 			return OHMD_S_OK;
 		}
 	case OHMD_RIGHT_EYE_GL_MODELVIEW_MATRIX: {
-			vec3f point = {{0, 0, 0}};
 			quatf rot = device->rotation;
 			oquatf_mult_me(&rot, &device->rotation_correction);
-			mat4x4f orient, world_shift, result;
-			omat4x4f_init_look_at(&orient, &rot, &point);
-			omat4x4f_init_translate(&world_shift, -device->position.x + -(device->properties.ipd / 2.0f), -device->position.y, -device->position.z);
-			omat4x4f_mult(&world_shift, &orient, &result);
+			mat4x4f central_view, eye_shift, result;
+			omat4x4f_init_look_at(&central_view, &rot, &device->position);
+			omat4x4f_init_translate(&eye_shift, -(device->properties.ipd / 2.0f), 0.0f, 0.0f);
+			omat4x4f_mult(&eye_shift, &central_view, &result);
 			omat4x4f_transpose(&result, (mat4x4f*)out);
 			return OHMD_S_OK;
 		}
@@ -370,7 +375,7 @@ static int ohmd_device_getf_unp(ohmd_device* device, ohmd_float_value type, floa
 	}
 }
 
-int OHMD_APIENTRY ohmd_device_getf(ohmd_device* device, ohmd_float_value type, float* out)
+OHMD_APIENTRYDLL int OHMD_APIENTRY ohmd_device_getf(ohmd_device* device, ohmd_float_value type, float* out)
 {
 	ohmd_lock_mutex(device->ctx->update_mutex);
 	int ret = ohmd_device_getf_unp(device, type, out);
@@ -431,7 +436,7 @@ int ohmd_device_setf_unp(ohmd_device* device, ohmd_float_value type, const float
 	}
 }
 
-int OHMD_APIENTRY ohmd_device_setf(ohmd_device* device, ohmd_float_value type, const float* in)
+OHMD_APIENTRYDLL int OHMD_APIENTRY ohmd_device_setf(ohmd_device* device, ohmd_float_value type, const float* in)
 {
 	ohmd_lock_mutex(device->ctx->update_mutex);
 	int ret = ohmd_device_setf_unp(device, type, in);
@@ -440,7 +445,7 @@ int OHMD_APIENTRY ohmd_device_setf(ohmd_device* device, ohmd_float_value type, c
 	return ret;
 }
 
-int OHMD_APIENTRY ohmd_device_geti(ohmd_device* device, ohmd_int_value type, int* out)
+OHMD_APIENTRYDLL int OHMD_APIENTRY ohmd_device_geti(ohmd_device* device, ohmd_int_value type, int* out)
 {
 	switch(type){
 		case OHMD_SCREEN_HORIZONTAL_RESOLUTION:
@@ -468,7 +473,7 @@ int OHMD_APIENTRY ohmd_device_geti(ohmd_device* device, ohmd_int_value type, int
 	}
 }
 
-int OHMD_APIENTRY ohmd_device_seti(ohmd_device* device, ohmd_int_value type, const int* in)
+OHMD_APIENTRYDLL int OHMD_APIENTRY ohmd_device_seti(ohmd_device* device, ohmd_int_value type, const int* in)
 {
 	switch(type){
 	default:
@@ -493,7 +498,7 @@ int ohmd_device_set_data_unp(ohmd_device* device, ohmd_data_value type, const vo
     }
 }
 
-int OHMD_APIENTRY ohmd_device_set_data(ohmd_device* device, ohmd_data_value type, const void* in)
+OHMD_APIENTRYDLL int OHMD_APIENTRY ohmd_device_set_data(ohmd_device* device, ohmd_data_value type, const void* in)
 {
 	ohmd_lock_mutex(device->ctx->update_mutex);
 	int ret = ohmd_device_set_data_unp(device, type, in);
@@ -502,7 +507,7 @@ int OHMD_APIENTRY ohmd_device_set_data(ohmd_device* device, ohmd_data_value type
 	return ret;
 }
 
-ohmd_status OHMD_APIENTRY ohmd_device_settings_seti(ohmd_device_settings* settings, ohmd_int_settings key, const int* val)
+OHMD_APIENTRYDLL ohmd_status OHMD_APIENTRY ohmd_device_settings_seti(ohmd_device_settings* settings, ohmd_int_settings key, const int* val)
 {
 	switch(key){
 	case OHMD_IDS_AUTOMATIC_UPDATE:
@@ -514,12 +519,12 @@ ohmd_status OHMD_APIENTRY ohmd_device_settings_seti(ohmd_device_settings* settin
 	}
 }
 
-ohmd_device_settings* OHMD_APIENTRY ohmd_device_settings_create(ohmd_context* ctx)
+OHMD_APIENTRYDLL ohmd_device_settings* OHMD_APIENTRY ohmd_device_settings_create(ohmd_context* ctx)
 {
 	return ohmd_alloc(ctx, sizeof(ohmd_device_settings));
 }
 
-void OHMD_APIENTRY ohmd_device_settings_destroy(ohmd_device_settings* settings)
+OHMD_APIENTRYDLL void OHMD_APIENTRY ohmd_device_settings_destroy(ohmd_device_settings* settings)
 {
 	free(settings);
 }
@@ -602,4 +607,37 @@ uint64_t ohmd_monotonic_conv(uint64_t ticks, uint64_t srcTicksPerSecond, uint64_
 	// integer overflow.
 	return ticks / srcTicksPerSecond * dstTicksPerSecond +
 		ticks % srcTicksPerSecond * dstTicksPerSecond / srcTicksPerSecond;
+}
+
+void ohmd_get_version(int* out_major, int* out_minor, int* out_patch)
+{
+	*out_major = OHMD_VERSION_MAJOR;
+	*out_minor = OHMD_VERSION_MINOR;
+	*out_patch = OHMD_VERSION_PATCH;
+}
+
+ohmd_status ohmd_require_version(int major, int minor, int patch)
+{
+	int curr_major, curr_minor, curr_patch;
+	ohmd_get_version(&curr_major, &curr_minor, &curr_patch);
+
+	if(curr_major != major){
+		// require same major version
+		return OHMD_S_UNSUPPORTED;
+	}
+
+	if(curr_minor == minor){
+		// check patch version if the required minor version matches current
+		if(curr_patch < patch){
+			// fail is patch is too low
+			return OHMD_S_UNSUPPORTED;
+		}
+	}
+	else if(curr_minor < minor)
+	{
+		// fail if minor is too low
+		return OHMD_S_UNSUPPORTED;
+	}
+
+	return OHMD_S_OK;
 }

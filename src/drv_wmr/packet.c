@@ -1,3 +1,12 @@
+// Copyright 2018, Philipp Zabel.
+// SPDX-License-Identifier: BSL-1.0
+/*
+ * OpenHMD - Free and Open Source API and drivers for immersive technology.
+ */
+
+/* Windows Mixed Reality Driver */
+
+
 #include "wmr.h"
 
 #ifdef _MSC_VER
@@ -18,9 +27,9 @@ inline static int16_t read16(const unsigned char** buffer)
 	return ret;
 }
 
-inline static uint32_t read32(const unsigned char** buffer)
+inline static int32_t read32(const unsigned char** buffer)
 {
-	uint32_t ret = **buffer | (*(*buffer + 1) << 8) | (*(*buffer + 2) << 16) | (*(*buffer + 3) << 24);
+	int32_t ret = **buffer | (*(*buffer + 1) << 8) | (*(*buffer + 2) << 16) | (*(*buffer + 3) << 24);
 	*buffer += 4;
 	return ret;
 }
@@ -41,7 +50,8 @@ inline static uint64_t read64(const unsigned char** buffer)
 
 bool hololens_sensors_decode_packet(hololens_sensors_packet* pkt, const unsigned char* buffer, int size)
 {
-	if(size != 497){
+	if(size != 497 &&
+	   size != 381){
 		LOGE("invalid hololens sensor packet size (expected 497 but got %d)", size);
 		return false;
 	}

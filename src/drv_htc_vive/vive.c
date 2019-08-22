@@ -1,20 +1,24 @@
+// Copyright 2013, Fredrik Hultin.
+// Copyright 2013, Jakob Bornecrantz.
+// Copyright 2013, Joey Ferwerda.
+// SPDX-License-Identifier: BSL-1.0
 /*
  * OpenHMD - Free and Open Source API and drivers for immersive technology.
- * Copyright (C) 2013 Fredrik Hultin.
- * Copyright (C) 2013 Jakob Bornecrantz.
- * Distributed under the Boost 1.0 licence, see LICENSE for full text.
  */
 
 /* HTC Vive Driver */
+
 
 #define FEATURE_BUFFER_SIZE 256
 
 #define HTC_ID                   0x0bb4
 #define VIVE_HMD                 0x2c87
+#define VIVE_PRO_HMD             0x0309
 
 #define VALVE_ID                 0x28de
 #define VIVE_WATCHMAN_DONGLE     0x2101
 #define VIVE_LIGHTHOUSE_FPGA_RX  0x2000
+#define VIVE_LHR                 0x2300 // VIVE PRO
 
 #define VIVE_CLOCK_FREQ 48000000.0f // Hz = 48 MHz
 
@@ -27,6 +31,11 @@
 #include <stdbool.h>
 
 #include "vive.h"
+
+typedef enum {
+	REV_VIVE,
+	REV_VIVE_PRO
+} vive_revision;
 
 typedef struct {
 	ohmd_device base;
@@ -41,6 +50,8 @@ typedef struct {
 	vec3f gyro_error;
 	filter_queue gyro_q;
 
+	vive_revision revision;
+
 	vive_imu_config imu_config;
 
 } vive_priv;
@@ -53,9 +64,6 @@ void vec3f_from_vive_vec_accel(const vive_imu_config* config,
 	out->x = range * config->acc_scale.x * (float) smp[0] - config->acc_bias.x;
 	out->y = range * config->acc_scale.y * (float) smp[1] - config->acc_bias.y;
 	out->z = range * config->acc_scale.z * (float) smp[2] - config->acc_bias.z;
-
-	out->y *= -1;
-	out->z *= -1;
 }
 
 void vec3f_from_vive_vec_gyro(const vive_imu_config* config,
@@ -66,9 +74,6 @@ void vec3f_from_vive_vec_gyro(const vive_imu_config* config,
 	out->x = range * config->gyro_scale.x * (float)smp[0] - config->gyro_bias.x;
 	out->y = range * config->gyro_scale.y * (float)smp[1] - config->gyro_bias.x;
 	out->z = range * config->gyro_scale.z * (float)smp[2] - config->gyro_bias.x;
-
-	out->y *= -1;
-	out->z *= -1;
 }
 
 static bool process_error(vive_priv* priv)
@@ -124,7 +129,7 @@ static void update_device(ohmd_device* device)
 	unsigned char buffer[FEATURE_BUFFER_SIZE];
 
 	while((size = hid_read(priv->imu_handle, buffer, FEATURE_BUFFER_SIZE)) > 0){
-		if(buffer[0] == VIVE_IRQ_SENSORS){
+		if(buffer[0] == VIVE_HMD_IMU_PACKET_ID){
 			vive_headset_imu_packet pkt;
 			vive_decode_sensor_packet(&pkt, buffer, size);
 
@@ -145,6 +150,24 @@ static void update_device(ohmd_device* device)
 
 				vec3f_from_vive_vec_accel(&priv->imu_config, smp->acc, &priv->raw_accel);
 				vec3f_from_vive_vec_gyro(&priv->imu_config, smp->rot, &priv->raw_gyro);
+
+				// Fix imu orientation
+				switch (priv->revision) {
+					case REV_VIVE:
+						priv->raw_accel.y *= -1;
+						priv->raw_accel.z *= -1;
+						priv->raw_gyro.y *= -1;
+						priv->raw_gyro.z *= -1;
+						break;
+					case REV_VIVE_PRO:
+						priv->raw_accel.x *= -1;
+						priv->raw_accel.z *= -1;
+						priv->raw_gyro.x *= -1;
+						priv->raw_gyro.z *= -1;
+						break;
+					default:
+						LOGE("Unknown VIVE revision.\n");
+				}
 
 				if(process_error(priv)){
 					vec3f mag = {{0.0f, 0.0f, 0.0f}};
@@ -201,11 +224,27 @@ static void close_device(ohmd_device* device)
 	LOGD("closing HTC Vive device");
 
 	// turn the display off
-	hret = hid_send_feature_report(priv->hmd_handle, vive_magic_power_off1, sizeof(vive_magic_power_off1));
-	LOGI("power off magic 1: %d\n", hret);
+	switch (priv->revision) {
+		case REV_VIVE:
+			hret = hid_send_feature_report(priv->hmd_handle,
+			                               vive_magic_power_off1,
+			                               sizeof(vive_magic_power_off1));
+			LOGI("power off magic 1: %d\n", hret);
 
-	hret = hid_send_feature_report(priv->hmd_handle, vive_magic_power_off2, sizeof(vive_magic_power_off2));
-	LOGI("power off magic 2: %d\n", hret);
+			hret = hid_send_feature_report(priv->hmd_handle,
+			                               vive_magic_power_off2,
+			                               sizeof(vive_magic_power_off2));
+			LOGI("power off magic 2: %d\n", hret);
+			break;
+		case REV_VIVE_PRO:
+			hret = hid_send_feature_report(priv->hmd_handle,
+			                               vive_pro_magic_power_off,
+			                               sizeof(vive_pro_magic_power_off));
+			LOGI("vive pro power off magic: %d\n", hret);
+			break;
+		default:
+			LOGE("Unknown VIVE revision.\n");
+	}
 
 	hid_close(priv->hmd_handle);
 	hid_close(priv->imu_handle);
@@ -286,7 +325,7 @@ static hid_device* open_device_idx(int manufacturer, int product, int iface, int
 	return ret;
 }
 
-void vive_read_config(vive_priv* priv)
+int vive_read_config(vive_priv* priv)
 {
 	unsigned char buffer[128];
 	int bytes;
@@ -295,6 +334,10 @@ void vive_read_config(vive_priv* priv)
 	buffer[0] = VIVE_CONFIG_START_PACKET_ID;
 	bytes = hid_get_feature_report(priv->imu_handle, buffer, sizeof(buffer));
 	printf("got %i bytes\n", bytes);
+
+	if (bytes < 0)
+		return bytes;
+
 	for (int i = 0; i < bytes; i++) {
 		printf("%02x ", buffer[i]);
 	}
@@ -315,6 +358,8 @@ void vive_read_config(vive_priv* priv)
   vive_decode_config_packet(&priv->imu_config, packet_buffer, offset);
 
   free(packet_buffer);
+
+  return 0;
 }
 
 #define OHMD_GRAVITY_EARTH 9.80665 // m/s²
@@ -374,12 +419,23 @@ static ohmd_device* open_device(ohmd_driver* driver, ohmd_device_desc* desc)
 
 	int hret = 0;
 
+	priv->revision = desc->revision;
+
 	priv->base.ctx = driver->ctx;
 
 	int idx = atoi(desc->path);
 
 	// Open the HMD device
-	priv->hmd_handle = open_device_idx(HTC_ID, VIVE_HMD, 0, 1, idx);
+	switch (desc->revision) {
+		case REV_VIVE:
+			priv->hmd_handle = open_device_idx(HTC_ID, VIVE_HMD, 0, 1, idx);
+			break;
+		case REV_VIVE_PRO:
+			priv->hmd_handle = open_device_idx(HTC_ID, VIVE_PRO_HMD, 0, 1, idx);
+			break;
+		default:
+			LOGE("Unknown VIVE revision.\n");
+	}
 
 	if(!priv->hmd_handle)
 		goto cleanup;
@@ -389,8 +445,17 @@ static ohmd_device* open_device(ohmd_driver* driver, ohmd_device_desc* desc)
 		goto cleanup;
 	}
 
-	// Open the lighthouse device
-	priv->imu_handle = open_device_idx(VALVE_ID, VIVE_LIGHTHOUSE_FPGA_RX, 0, 2, idx);
+	switch (desc->revision) {
+		case REV_VIVE:
+			priv->imu_handle = open_device_idx(VALVE_ID,
+			                                   VIVE_LIGHTHOUSE_FPGA_RX, 0, 2, idx);
+			break;
+		case REV_VIVE_PRO:
+			priv->imu_handle = open_device_idx(VALVE_ID, VIVE_LHR, 0, 1, idx);
+			break;
+		default:
+			LOGE("Unknown VIVE revision.\n");
+	}
 
 	if(!priv->imu_handle)
 		goto cleanup;
@@ -404,35 +469,98 @@ static ohmd_device* open_device(ohmd_driver* driver, ohmd_device_desc* desc)
 	dump_info_string(hid_get_product_string , "product", priv->hmd_handle);
 	dump_info_string(hid_get_serial_number_string, "serial number", priv->hmd_handle);
 
-	// turn the display on
-	hret = hid_send_feature_report(priv->hmd_handle, vive_magic_power_on, sizeof(vive_magic_power_on));
-	LOGI("power on magic: %d\n", hret);
+	switch (desc->revision) {
+		case REV_VIVE:
+			// turn the display on
+			hret = hid_send_feature_report(priv->hmd_handle,
+			                               vive_magic_power_on,
+			                               sizeof(vive_magic_power_on));
+			LOGI("power on magic: %d\n", hret);
+			break;
+		case REV_VIVE_PRO:
+			// turn the display on
+			hret = hid_send_feature_report(priv->hmd_handle,
+			                               vive_pro_magic_power_on,
+			                               sizeof(vive_pro_magic_power_on));
+			LOGI("power on magic: %d\n", hret);
+
+			// Enable VIVE Pro IMU
+			hret = hid_send_feature_report(priv->imu_handle,
+			                               vive_pro_enable_imu,
+			                               sizeof(vive_pro_enable_imu));
+			LOGI("Enable Pro IMU magic: %d\n", hret);
+			break;
+		default:
+			LOGE("Unknown VIVE revision.\n");
+	}
 
 	// enable lighthouse
 	//hret = hid_send_feature_report(priv->hmd_handle, vive_magic_enable_lighthouse, sizeof(vive_magic_enable_lighthouse));
 	//LOGD("enable lighthouse magic: %d\n", hret);
 
-	vive_read_config(priv);
+	if (vive_read_config(priv) != 0)
+	{
+		LOGW("Could not read config. Using defaults.\n");
+		priv->imu_config.acc_bias.x = 0.157200f;
+		priv->imu_config.acc_bias.y = -0.011150f;
+		priv->imu_config.acc_bias.z = -0.144900f;
+
+		priv->imu_config.acc_scale.x = 0.999700f;
+		priv->imu_config.acc_scale.y = 0.998900f;
+		priv->imu_config.acc_scale.z = 0.998000f;
+
+		priv->imu_config.gyro_bias.x = -0.027770f;
+		priv->imu_config.gyro_bias.y = -0.011410f;
+		priv->imu_config.gyro_bias.z = -0.014760f;
+
+		priv->imu_config.gyro_scale.x = 1.0f;
+		priv->imu_config.gyro_scale.y = 1.0f;
+		priv->imu_config.gyro_scale.z = 1.0f;
+	}
 
 	if (vive_get_range_packet(priv) != 0)
 	{
-		LOGE("Could not get range packet.\n");
+		LOGW("Could not get range packet.\n");
+		priv->imu_config.gyro_range = 8.726646f;
+		priv->imu_config.acc_range = 39.226600f;
 	}
 
 	// Set default device properties
 	ohmd_set_default_device_properties(&priv->base.properties);
 
 	// Set device properties TODO: Get from device
+	switch (desc->revision) {
+		case REV_VIVE:
+			priv->base.properties.hres = 2160;
+			priv->base.properties.vres = 1200;
+			priv->base.properties.ratio = (2160.0f / 1200.0f) / 2.0f;
+			break;
+		case REV_VIVE_PRO:
+			priv->base.properties.hres = 2880;
+			priv->base.properties.vres = 1600;
+			priv->base.properties.ratio = (2880.0f / 1600.0f) / 2.0f;
+			break;
+		default:
+			LOGE("Unknown VIVE revision.\n");
+	}
+
+	//TODO: Confirm exact mesurements. Get for VIVE Pro.
 	priv->base.properties.hsize = 0.122822f;
 	priv->base.properties.vsize = 0.068234f;
-	priv->base.properties.hres = 2160;
-	priv->base.properties.vres = 1200;
-	priv->base.properties.lens_sep = 0.063500f;
-	priv->base.properties.lens_vpos = 0.049694f;
-	priv->base.properties.fov = DEG_TO_RAD(111.435f); //TODO: Confirm exact mesurements
-	priv->base.properties.ratio = (2160.0f / 1200.0f) / 2.0f;
 
-	// calculate projection eye projection matrices from the device properties
+	/*
+	 * calculated from here:
+	 * https://www.gamedev.net/topic/683698-projection-matrix-model-of-the-htc-vive/
+	 */
+	priv->base.properties.lens_sep = 0.057863;
+	priv->base.properties.lens_vpos = 0.033896;
+
+	float eye_to_screen_distance = 0.023226876441867737;
+	priv->base.properties.fov = 2 * atan2f(
+		priv->base.properties.hsize / 2 - priv->base.properties.lens_sep / 2,
+		eye_to_screen_distance);
+
+	/* calculate projection eye projection matrices from the device properties */
 	ohmd_calc_default_proj_matrices(&priv->base.properties);
 
 	// set up device callbacks
@@ -455,7 +583,17 @@ cleanup:
 
 static void get_device_list(ohmd_driver* driver, ohmd_device_list* list)
 {
+	vive_revision rev;
 	struct hid_device_info* devs = hid_enumerate(HTC_ID, VIVE_HMD);
+
+	if (devs != NULL) {
+		rev = REV_VIVE;
+	} else {
+		devs = hid_enumerate(HTC_ID, VIVE_PRO_HMD);
+		if (devs != NULL)
+			rev = REV_VIVE_PRO;
+	}
+
 	struct hid_device_info* cur_dev = devs;
 
 	int idx = 0;
@@ -466,7 +604,7 @@ static void get_device_list(ohmd_driver* driver, ohmd_device_list* list)
 		strcpy(desc->vendor, "HTC/Valve");
 		strcpy(desc->product, "HTC Vive");
 
-		desc->revision = 0;
+		desc->revision = rev;
 
 		snprintf(desc->path, OHMD_STR_SIZE, "%d", idx);
 

@@ -8,6 +8,7 @@
 /* Simple Test */
 
 #include <openhmd.h>
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -16,7 +17,8 @@ void ohmd_sleep(double);
 // gets float values from the device and prints them
 void print_infof(ohmd_device* hmd, const char* name, int len, ohmd_float_value val)
 {
-	float f[len];
+	float f[16];
+	assert(len <= 16);
 	ohmd_device_getf(hmd, val, f);
 	printf("%-25s", name);
 	for(int i = 0; i < len; i++)
@@ -27,7 +29,8 @@ void print_infof(ohmd_device* hmd, const char* name, int len, ohmd_float_value v
 // gets int values from the device and prints them
 void print_infoi(ohmd_device* hmd, const char* name, int len, ohmd_int_value val)
 {
-	int iv[len];
+	int iv[16];
+	assert(len <= 16);
 	ohmd_device_geti(hmd, val, iv);
 	printf("%-25s", name);
 	for(int i = 0; i < len; i++)
@@ -41,6 +44,13 @@ int main(int argc, char** argv)
 
 	if(argc > 1)
 		device_idx = atoi(argv[1]);
+
+	ohmd_require_version(0, 3, 0);
+
+	int major, minor, patch;
+	ohmd_get_version(&major, &minor, &patch);
+
+	printf("OpenHMD version: %d.%d.%d\n", major, minor, patch);
 
 	ohmd_context* ctx = ohmd_ctx_create();
 
@@ -123,8 +133,6 @@ int main(int argc, char** argv)
 
 	printf("\n\n");
 
-	int device_class = 0;
-	ohmd_device_geti(hmd, OHMD_DEVICE_CLASS, &device_class);
 	// Ask for n rotation quaternions and position vectors
 	for(int i = 0; i < 10000; i++){
 		ohmd_ctx_update(ctx);
@@ -140,7 +148,7 @@ int main(int argc, char** argv)
 		print_infof(hmd, "position vec: ", 3, OHMD_POSITION_VECTOR);
 
 		// read controls
-		if (device_class & OHMD_DEVICE_CLASS_CONTROLLER) {
+		if (control_count) {
 			float control_state[256];
 			ohmd_device_getf(hmd, OHMD_CONTROLS_STATE, control_state);
 

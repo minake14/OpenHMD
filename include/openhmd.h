@@ -32,7 +32,7 @@ extern "C" {
 #endif
 #else
 #define OHMD_APIENTRY
-#define OHMD_APIENTRYDLL
+#define OHMD_APIENTRYDLL __attribute__((visibility("default")))
 #endif
 
 /** Maximum length of a string, including termination, in OpenHMD. */
@@ -63,6 +63,8 @@ typedef enum {
 	OHMD_GLSL_DISTORTION_FRAG_SRC = 1,
 	OHMD_GLSL_330_DISTORTION_VERT_SRC = 2,
 	OHMD_GLSL_330_DISTORTION_FRAG_SRC = 3,
+	OHMD_GLSL_ES_DISTORTION_VERT_SRC = 4,
+	OHMD_GLSL_ES_DISTORTION_FRAG_SRC = 5,
 } ohmd_string_description;
 
 /** Standard controls. Note that this is not an index into the control state. 
@@ -449,6 +451,32 @@ OHMD_APIENTRYDLL int OHMD_APIENTRY ohmd_device_seti(ohmd_device* device, ohmd_in
  * @return 0 on success, <0 on failure.
  **/
 OHMD_APIENTRYDLL int OHMD_APIENTRY ohmd_device_set_data(ohmd_device* device, ohmd_data_value type, const void* in);
+
+/**
+ * Get the library version.
+ *
+ * @param major Major version.
+ * @param minor Minor version.
+ * @param patch Patch version.
+ **/
+OHMD_APIENTRYDLL void OHMD_APIENTRY ohmd_get_version(int* out_major, int* out_minor, int* out_patch);
+
+/**
+ * Check that the library is compatible with the required version.
+ *
+ * @param major Required major version.
+ * @param minor Required minor version.
+ * @param patch Required patch version.
+ * @return OMHD_S_OK if the version is compatible or OHMD_S_UNSUPPORTED if it's not.
+ **/
+OHMD_APIENTRYDLL ohmd_status OHMD_APIENTRY ohmd_require_version(int major, int minor, int patch);
+
+/**
+ * Sleep for the given amount of seconds.
+ *
+ * @param time Time to sleep in seconds.
+ **/
+OHMD_APIENTRYDLL void OHMD_APIENTRY ohmd_sleep(double time);
 
 #ifdef __cplusplus
 }

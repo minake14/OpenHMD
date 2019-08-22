@@ -1,11 +1,12 @@
+// Copyright 2013, Fredrik Hultin.
+// Copyright 2013, Jakob Bornecrantz.
+// SPDX-License-Identifier: BSL-1.0
 /*
  * OpenHMD - Free and Open Source API and drivers for immersive technology.
- * Copyright (C) 2013 Fredrik Hultin.
- * Copyright (C) 2013 Jakob Bornecrantz.
- * Distributed under the Boost 1.0 licence, see LICENSE for full text.
  */
 
 /* Internal interface */
+
 
 #ifndef OPENHMDI_H
 #define OPENHMDI_H
@@ -25,6 +26,10 @@
 #define OHMD_MIN(_a, _b) ((_a) < (_b) ? (_a) : (_b))
 
 #define OHMD_STRINGIFY(_what) #_what
+
+#define OHMD_VERSION_MAJOR 0
+#define OHMD_VERSION_MINOR 3
+#define OHMD_VERSION_PATCH 0
 
 typedef struct ohmd_driver ohmd_driver;
 

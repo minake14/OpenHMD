@@ -1,3 +1,14 @@
+// Copyright 2013, Fredrik Hultin.
+// Copyright 2013, Jakob Bornecrantz.
+// Copyright 2013, Joey Ferwerda.
+// SPDX-License-Identifier: BSL-1.0
+/*
+ * OpenHMD - Free and Open Source API and drivers for immersive technology.
+ */
+
+/* HTC Vive Driver */
+
+
 #ifndef VIVE_H
 #define VIVE_H
 
@@ -12,7 +23,7 @@ typedef enum
 	VIVE_IMU_RANGE_MODES_PACKET_ID = 1,
 	VIVE_CONFIG_START_PACKET_ID = 16,
 	VIVE_CONFIG_READ_PACKET_ID = 17,
-	VIVE_IRQ_SENSORS = 32,
+	VIVE_HMD_IMU_PACKET_ID = 32,
 } vive_irq_cmd;
 
 typedef struct
