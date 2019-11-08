@@ -60,22 +60,40 @@ typedef struct {
 
 void vec3f_from_vive_vec_accel(const vive_imu_config* config,
                                const int16_t* smp,
-                               vec3f* out)
+                               vec3f* out, bool xy_swap)
 {
 	float range = config->acc_range / 32768.0f;
-	out->x = range * config->acc_scale.x * (float) smp[0] - config->acc_bias.x;
-	out->y = range * config->acc_scale.y * (float) smp[1] - config->acc_bias.y;
-	out->z = range * config->acc_scale.z * (float) smp[2] - config->acc_bias.z;
+	if(!xy_swap)
+	{
+		out->x = range * config->acc_scale.x * (float) smp[0] - config->acc_bias.x;
+		out->y = range * config->acc_scale.y * (float) smp[1] - config->acc_bias.y;
+		out->z = range * config->acc_scale.z * (float) smp[2] - config->acc_bias.z;
+	}
+	else
+	{
+		out->x = range * config->acc_scale.x * (float) smp[1] - config->acc_bias.y;
+		out->y = range * config->acc_scale.y * (float) smp[0] - config->acc_bias.x;
+		out->z = range * config->acc_scale.z * (float) smp[2] - config->acc_bias.z;
+	}
 }
 
 void vec3f_from_vive_vec_gyro(const vive_imu_config* config,
                               const int16_t* smp,
-                              vec3f* out)
+                              vec3f* out, bool xy_swap)
 {
 	float range = config->gyro_range / 32768.0f;
-	out->x = range * config->gyro_scale.x * (float)smp[0] - config->gyro_bias.x;
-	out->y = range * config->gyro_scale.y * (float)smp[1] - config->gyro_bias.x;
-	out->z = range * config->gyro_scale.z * (float)smp[2] - config->gyro_bias.x;
+	if(!xy_swap)
+	{
+		out->x = range * config->gyro_scale.x * (float)smp[0] - config->gyro_bias.x;
+		out->y = range * config->gyro_scale.y * (float)smp[1] - config->gyro_bias.x;
+		out->z = range * config->gyro_scale.z * (float)smp[2] - config->gyro_bias.x;
+	}
+	else
+	{
+		out->x = range * config->gyro_scale.x * (float)smp[1] - config->gyro_bias.x;
+		out->y = range * config->gyro_scale.y * (float)smp[0] - config->gyro_bias.x;
+		out->z = range * config->gyro_scale.z * (float)smp[2] - config->gyro_bias.x;
+	}
 }
 
 static bool process_error(vive_priv* priv)
@@ -128,6 +146,9 @@ static void update_device(ohmd_device* device)
 	vive_priv* priv = (vive_priv*)device;
 
 	int size = 0;
+	bool xy_swap = false;
+	if ( priv->revision == REV_INDEX )
+		xy_swap = true;
 	unsigned char buffer[FEATURE_BUFFER_SIZE];
 
 	while((size = hid_read(priv->imu_handle, buffer, FEATURE_BUFFER_SIZE)) > 0){
@@ -150,8 +171,8 @@ static void update_device(ohmd_device* device)
 
 				priv->last_ticks = smp->time_ticks;
 
-				vec3f_from_vive_vec_accel(&priv->imu_config, smp->acc, &priv->raw_accel);
-				vec3f_from_vive_vec_gyro(&priv->imu_config, smp->rot, &priv->raw_gyro);
+				vec3f_from_vive_vec_accel(&priv->imu_config, smp->acc, &priv->raw_accel, xy_swap);
+				vec3f_from_vive_vec_gyro(&priv->imu_config, smp->rot, &priv->raw_gyro, xy_swap);
 
 				// Fix imu orientation
 				switch (priv->revision) {
@@ -169,8 +190,10 @@ static void update_device(ohmd_device* device)
 						break;
 					case REV_INDEX:
 						priv->raw_accel.x *= -1;
+						priv->raw_accel.y *= -1;
 						priv->raw_accel.z *= -1;
 						priv->raw_gyro.x *= -1;
+						priv->raw_gyro.y *= -1;
 						priv->raw_gyro.z *= -1;
 						break;
 					default:
@@ -259,7 +282,7 @@ static void close_device(ohmd_device* device)
 		default:
 			LOGE("Unknown VIVE revision.\n");
 	}
-
+	
 	hid_close(priv->hmd_handle);
 	if(priv->revision != REV_INDEX){
 		hid_close(priv->imu_handle);
