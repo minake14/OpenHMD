@@ -44,6 +44,8 @@ typedef struct {
 
 	hid_device* hmd_handle;
 	hid_device* imu_handle;
+	hid_device* imu_handle2;
+	hid_device* imu_handle3;
 	fusion sensor_fusion;
 	vec3f raw_accel, raw_gyro;
 	uint32_t last_ticks;
@@ -144,7 +146,7 @@ vive_headset_imu_sample* get_next_sample(vive_headset_imu_packet* pkt, int last_
 static void update_device(ohmd_device* device)
 {
 	vive_priv* priv = (vive_priv*)device;
-
+int hret = 0;
 	int size = 0;
 	bool xy_swap = false;
 	if ( priv->revision == REV_INDEX )
@@ -283,11 +285,10 @@ static void close_device(ohmd_device* device)
 			LOGE("Unknown VIVE revision.\n");
 	}
 	
+	hid_close(priv->imu_handle);
+	hid_close(priv->imu_handle2);
+	//hid_close(priv->imu_handle3);
 	hid_close(priv->hmd_handle);
-	if(priv->revision != REV_INDEX){
-		hid_close(priv->imu_handle);
-	}
-
 	free(device);
 }
 
@@ -473,7 +474,7 @@ static ohmd_device* open_device(ohmd_driver* driver, ohmd_device_desc* desc)
 			priv->hmd_handle = open_device_idx(HTC_ID, VIVE_PRO_HMD, 0, 1, idx);
 			break;
 		case REV_INDEX:
-			priv->hmd_handle = open_device_idx(VALVE_ID, INDEX_HMD, 0, 1, idx);
+			priv->hmd_handle = open_device_idx(VALVE_ID, INDEX_HMD, 0, 1, 2);
 			break;
 		default:
 			LOGE("Unknown VIVE revision.\n");
@@ -497,8 +498,9 @@ static ohmd_device* open_device(ohmd_driver* driver, ohmd_device_desc* desc)
 			break;
 			
 		case REV_INDEX:
-			//priv->imu_handle = open_device_idx(VALVE_ID, VIVE_LHR, 0, 1, idx);
-			priv->imu_handle = priv->hmd_handle;
+			priv->imu_handle = open_device_idx(VALVE_ID, VIVE_LHR, 0, 1, 0);
+			priv->imu_handle2 = open_device_idx(VALVE_ID, VIVE_LHR, 0, 1, 1);
+			//priv->imu_handle3 = open_device_idx(VALVE_ID, 0x2102, 0, 2, 1);
 			break;
 			
 		default:
@@ -546,10 +548,10 @@ static ohmd_device* open_device(ohmd_driver* driver, ohmd_device_desc* desc)
 			LOGI("power on magic: %d\n", hret);
 
 			// Enable Index IMU
-			hret = hid_send_feature_report(priv->hmd_handle,
-			                               vive_pro_enable_imu,
-			                               sizeof(vive_pro_enable_imu));
-			LOGI("Enable Pro IMU magic: %d\n", hret);
+			//hret = hid_send_feature_report(priv->hmd_handle,
+			 //                              vive_pro_enable_imu,
+			  //                             sizeof(vive_pro_enable_imu));
+			//LOGI("Enable Pro IMU magic: %d\n", hret);
 			break;
 		default:
 			LOGE("Unknown VIVE revision.\n");
