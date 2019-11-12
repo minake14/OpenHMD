@@ -92,9 +92,9 @@ void vec3f_from_vive_vec_gyro(const vive_imu_config* config,
 	}
 	else
 	{
-		out->x = range * config->gyro_scale.x * (float)smp[1] - config->gyro_bias.x;
+		out->x = range * config->gyro_scale.x * (float)smp[1] - config->gyro_bias.y;
 		out->y = range * config->gyro_scale.y * (float)smp[0] - config->gyro_bias.x;
-		out->z = range * config->gyro_scale.z * (float)smp[2] - config->gyro_bias.x;
+		out->z = range * config->gyro_scale.z * (float)smp[2] - config->gyro_bias.z;
 	}
 }
 
